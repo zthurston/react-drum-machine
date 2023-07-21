@@ -1,5 +1,5 @@
 import './App.scss';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 const heaterBank = [
   {
     keyCode: 81,
@@ -129,13 +129,15 @@ const inactiveStyle = {
 
 function DrumPad(props) {
   const [padStyle, setPadStyle] = useState(inactiveStyle);
-  const { power, keyTrigger, clipId, clip, updateDisplay, keyCode } = props;
-
+  const { power, keyTrigger, clipId, clip, updateDisplay, keyCode, volume } = props;
+  const audioRef = useRef(null); 
   const playSound = useCallback(() => {
     if (power) {
-      const sound = document.getElementById(keyTrigger);
-      sound.currentTime = 0;
-      sound.play();
+      //console.log('power is on, playing sound using audioRef:', audioRef.current);
+      audioRef.current.volume = volume;
+      audioRef.current.currentTime = 0;
+      audioRef.current.play();
+
       setPadStyle(activeStyle);
 
       setTimeout(() => {
@@ -146,17 +148,20 @@ function DrumPad(props) {
       // need a hyphen to work with html
       updateDisplay(clipId.replace(/-/g, ' '));
     }
-  }, [setPadStyle, power, keyTrigger, clipId, updateDisplay]);
+  }, [setPadStyle, power, clipId, updateDisplay, volume]);
 
   useEffect(() => {
     const keyDownHandler = event => {
       if (event.keyCode === keyCode) {
+        //console.log('playing sound for keycode:', keyCode);
         playSound();
       }
     };
+    //console.log('added keydown event handler');
     document.addEventListener('keydown', keyDownHandler);
     // Remove event listeners on cleanup
     return () => {
+      //console.log('removed keydown event handler');
       document.removeEventListener('keydown', keyDownHandler);
     };
   }, [playSound, keyCode]);
@@ -171,6 +176,7 @@ function DrumPad(props) {
       className='clip'
       id={keyTrigger}
       src={clip}
+      ref={audioRef}
     />
     {keyTrigger}
   </div>
@@ -186,6 +192,7 @@ function PadBank(props) {
         keyTrigger={padBankArr[i].keyTrigger}
         power={props.power}
         updateDisplay={props.updateDisplay}
+        volume={props.clipVolume}
       />
     );
   });
@@ -216,6 +223,7 @@ function App() {
 
   const clearDisplay = () => setDisplay(nonBreakingSpace);
   const handleVolumeChange = event => {
+    //console.log('handleVolumeChange fired');
     if (powerState) {
       setVolumeSliderValue(event.target.value)
       setDisplay('Volume:' + Math.round(event.target.value * 100));
@@ -250,13 +258,6 @@ function App() {
     if (powerState)
       setDisplay(name);
   }
-
-  // manually override the volume of each clip with the current volume
-  // Seems hacky, there's probably a better way to do this
-  const clips = [].slice.call(document.getElementsByClassName('clip'));
-  clips.forEach(sound => {
-    sound.volume = volumeSliderValue;
-  });
 
   return (
     <div className='inner-container' id="drum-machine">
